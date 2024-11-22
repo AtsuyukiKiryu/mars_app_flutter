@@ -1,79 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
-import 'photo_model.dart';
-import 'photo_notifier.dart';
-import 'photo_repository.dart';
+import 'providers.dart';
+import 'photo.dart';
 
-class PhotoListScreen extends ConsumerStatefulWidget {
-  const PhotoListScreen({Key? key}) : super(key: key);
-
+class PhotoListPage extends ConsumerWidget {
   @override
-  ConsumerState<PhotoListScreen> createState() => _PhotoListScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final photosAsync = ref.watch(photosProvider);
 
-class _PhotoListScreenState extends ConsumerState<PhotoListScreen> {
-  final PagingController<int, PhotoModel> _pagingController =
-      PagingController(firstPageKey: 1);
-
-  @override
-  void initState() {
-    super.initState();
-    _pagingController.addPageRequestListener((pageKey) {
-      _fetchPhotos(pageKey);
-    });
-  }
-
-  Future<void> _fetchPhotos(int pageKey) async {
-    try {
-      final repository = ref.read(photoRepositoryProvider);
-      final photos = await repository.fetchPhotos(pageKey, 20);
-      final isLastPage = photos.length < 20;
-      if (isLastPage) {
-        _pagingController.appendLastPage(photos);
-      } else {
-        _pagingController.appendPage(photos, pageKey + 1);
-      }
-    } catch (e) {
-      _pagingController.error = e;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Mars Photos')),
-      body: 
-       PagedGridView<int, PhotoModel>(
-        pagingController: _pagingController,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 8.0,
-          mainAxisSpacing: 8.0,
-          childAspectRatio: 1.0,
-        ),
-        builderDelegate: PagedChildBuilderDelegate<PhotoModel>(
-          itemBuilder: (context, item, index) => Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16.0),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16.0),
-              child: 
-              Image.network(
-                item.url,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return const Center(child: CircularProgressIndicator());
-                },
-                errorBuilder: (context, error, stackTrace) =>
-                    const Icon(Icons.broken_image),
-              ),
-            ),
-          ),
-        ),
+return Scaffold(
+  appBar: AppBar(
+    title: Center(child: Text('Mars Photos',textAlign: TextAlign.center,)),
+    
+  ),
+  body: photosAsync.when(
+    data: (photos) => GridView.builder(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2, // 列の数を2に設定
+        crossAxisSpacing: 8.0, // 列間のスペース
+        mainAxisSpacing: 8.0, // 行間のスペース
+        childAspectRatio: 16/11, // 子要素のアスペクト比 (正方形)
       ),
-    );
+      padding: const EdgeInsets.all(8.0), // グリッド全体のパディング
+      itemCount: photos.length,
+      itemBuilder: (context, index) {
+        final photo = photos[index];
+        return GridTile(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12.0), // 角を丸くする
+                  child: Image.network(
+                    photo.imgSrc,
+                    fit: BoxFit.cover, // 画像をボックス内に収める
+                  ),
+                ),
+              ),
+              SizedBox(height: 4.0),
+            ],
+          ),
+        );
+      },
+    ),
+    loading: () => Center(child: CircularProgressIndicator()),
+    error: (err, stack) => Center(child: Text('Error: $err')),
+  ),
+);
   }
 }
